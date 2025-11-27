@@ -1,0 +1,286 @@
+/* --- ESTILOS GENERALES Y UTILIDADES --- */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f3f4f6;
+    transition: background-color 0.3s;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent; 
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1; 
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; 
+}
+.dark-mode ::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+/* Efecto Vidrio (Glassmorphism) */
+.glass-effect {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
+
+.btn-gradient {
+    background-image: linear-gradient(to right, #6366f1, #8b5cf6, #a855f7);
+    color: white;
+    transition: all 0.3s ease;
+    background-size: 200% auto;
+}
+.btn-gradient:hover {
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+.btn-gradient:disabled {
+    background-image: linear-gradient(to right, #a5b4fc, #c4b5fd, #d8b4fe);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* --- MODO OSCURO --- */
+.dark-mode {
+    background-color: #0f172a; 
+    color: #e2e8f0; 
+}
+.dark-mode .glass-effect {
+    background: rgba(30, 41, 59, 0.5); 
+    backdrop-filter: blur(12px);
+    border: 1px solid #334155; 
+}
+.dark-mode .bg-white { background-color: #1e293b; } 
+.dark-mode .bg-gray-50 { background-color: #334155; } 
+.dark-mode .text-gray-500 { color: #94a3b8; } 
+.dark-mode .text-gray-600 { color: #cbd5e1; } 
+.dark-mode .text-gray-700 { color: #e2e8f0; } 
+.dark-mode .text-gray-900 { color: #ffffff; }
+.dark-mode .border-gray-300 { border-color: #475569; } 
+.dark-mode .divide-gray-200 { border-color: #475569; } 
+.dark-mode input, .dark-mode select, .dark-mode textarea {
+    background-color: #334155; 
+    color: #e2e8f0; 
+    border-color: #475569; 
+}
+.dark-mode input::placeholder { color: #94a3b8; }
+
+/* --- TABS Y NAVEGACIÓN --- */
+.tab-btn.active {
+    border-bottom: 2px solid #6366f1;
+    color: #6366f1;
+    font-weight: 700;
+}
+.tab-content { display: none; }
+.tab-content.active { 
+    display: block; 
+    animation: fadeIn 0.5s; 
+}
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(10px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+/* Colores de fondo por Tab (Sutiles) */
+.glass-effect.bg-tab-users { background-color: rgba(239, 246, 255, 0.7); }
+.glass-effect.bg-tab-inventory { background-color: rgba(240, 253, 244, 0.7); }
+.glass-effect.bg-tab-adicionales { background-color: rgba(254, 252, 232, 0.7); }
+.glass-effect.bg-tab-reports { background-color: rgba(253, 242, 248, 0.7); }
+.glass-effect.bg-tab-settings { background-color: rgba(250, 250, 249, 0.7); }
+
+.dark-mode .glass-effect.bg-tab-users { background-color: rgba(30, 58, 138, 0.2); }
+.dark-mode .glass-effect.bg-tab-inventory { background-color: rgba(22, 101, 52, 0.2); }
+.dark-mode .glass-effect.bg-tab-adicionales { background-color: rgba(113, 63, 18, 0.2); }
+.dark-mode .glass-effect.bg-tab-reports { background-color: rgba(131, 24, 67, 0.2); }
+.dark-mode .glass-effect.bg-tab-settings { background-color: rgba(82, 82, 91, 0.2); }
+
+/* --- MODALES --- */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.4); 
+    backdrop-filter: blur(4px); 
+    display: flex; justify-content: center; align-items: center;
+    z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.modal-overlay.show { opacity: 1; pointer-events: auto; }
+.modal-content {
+    transform: scale(0.95);
+    transition: transform 0.3s;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.modal-overlay.show .modal-content { transform: scale(1); }
+
+/* --- ELEMENTOS DE UI ESPECÍFICOS --- */
+.location-chip {
+    display: inline-flex; align-items: center;
+    background-color: #e0e7ff; color: #3730a3;
+    padding: 2px 8px; border-radius: 9999px;
+    font-size: 0.75rem; font-weight: 600;
+    margin-right: 4px; margin-bottom: 4px;
+    border: 1px solid #c7d2fe;
+}
+.dark-mode .location-chip {
+    background-color: #312e81; color: #c7d2fe; border-color: #4338ca;
+}
+
+.mismatched-area-tag {
+    background-color: #fef2f2; color: #ef4444;
+    padding: 2px 6px; border-radius: 99px;
+    font-size: 0.7rem; font-weight: 600; margin-left: 8px; border: 1px solid #fecaca;
+}
+
+.active-user { background-color: #dcfce7; color: #166534; }
+.dark-mode .active-user { background-color: #14532d; color: #bbf7d0; }
+
+.additional-item { background-color: #f0fdf4; color: #16a34a; border-color: #4ade80; }
+.personal-item { background-color: #fefce8; color: #ca8a04; border-color: #facc15; }
+.dark-mode .additional-item { background-color: #052e16; color: #86efac; border-color: #22c55e; }
+.dark-mode .personal-item { background-color: #422006; color: #fde047; border-color: #eab308; }
+
+/* --- TABLA INVENTARIO (MODO EDICIÓN) --- */
+.inventory-editable-cell {
+    border: 2px dashed #cbd5e1;
+    background-color: #ffffff;
+    cursor: text !important;
+    transition: all 0.2s;
+    min-height: 24px;
+}
+.inventory-editable-cell:focus {
+    border: 2px solid #6366f1;
+    background-color: #eef2ff;
+    outline: none;
+    padding: 4px;
+}
+.dark-mode .inventory-editable-cell {
+    border-color: #475569; background-color: #1e293b;
+}
+.dark-mode .inventory-editable-cell:focus {
+    background-color: #0f172a; border-color: #818cf8;
+}
+
+.has-note { background-color: #fffbeb; }
+.item-located { background-color: #f0fdf4; }
+.dark-mode .has-note { background-color: #4a4a2a; }
+.dark-mode .item-located { background-color: rgba(22, 163, 74, 0.1); }
+
+/* --- CONCILIACIÓN (DIFF) --- */
+.diff-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    background-color: #fff;
+}
+.dark-mode .diff-card { border-color: #475569; background-color: #1e293b; }
+.diff-new { border-left: 4px solid #22c55e; } 
+.diff-del { border-left: 4px solid #ef4444; } 
+.diff-mod { border-left: 4px solid #f97316; } 
+.diff-old-val { text-decoration: line-through; opacity: 0.6; font-size: 0.85em; color: #ef4444; }
+.diff-new-val { font-weight: bold; color: #22c55e; }
+
+/* --- EDITOR CROQUIS (LAYOUT) --- */
+#layout-canvas {
+    background-image: 
+        linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+.dark-mode #layout-canvas {
+    background-image: 
+        linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+}
+
+.layout-shape {
+    position: absolute;
+    border: 2px solid #6366f1;
+    background-color: rgba(238, 242, 255, 0.9);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: move;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    touch-action: none;
+    user-select: none;
+    overflow: hidden;
+}
+.layout-shape h5 {
+    font-size: 0.8rem; font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.layout-shape ul { padding: 0; margin: 0; list-style: none; font-size: 0.7rem; }
+
+.layout-shape.tool-note { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+.layout-shape.tool-text { background: transparent; border: 2px dashed #9ca3af; }
+.layout-shape.tool-image { background-size: cover; background-position: center; border: 2px dashed #6366f1; }
+
+.layout-delete-btn, .layout-rotate-handle {
+    position: absolute; width: 20px; height: 20px; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 10px; color: white; cursor: pointer; opacity: 0; transition: opacity 0.2s;
+}
+.layout-shape:hover .layout-delete-btn, .layout-shape:hover .layout-rotate-handle { opacity: 1; }
+.layout-delete-btn { top: -8px; right: -8px; background: red; }
+.layout-rotate-handle { bottom: -8px; right: -8px; background: blue; cursor: alias; }
+
+/* --- PROGRESO E IMPORTACIÓN --- */
+.progress-bar-container {
+    width: 100%; background-color: #e5e7eb; border-radius: 99px; overflow: hidden; height: 1.25rem;
+}
+#import-progress-bar {
+    height: 100%; background-color: #4f46e5; width: 0%; transition: width 0.3s;
+    text-align: center; color: white; font-size: 0.75rem; line-height: 1.25rem;
+}
+
+/* --- ESTILOS DE IMPRESIÓN (MUY IMPORTANTE) --- */
+@media print {
+    body > * { display: none !important; }
+    #print-view-container { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
+    
+    .print-page { 
+        display: none; page-break-after: always; width: 100%; padding: 20px; 
+        font-family: Arial, sans-serif; 
+    }
+    .print-page.active { display: block; }
+    
+    .print-header { 
+        display: flex; justify-content: space-between; align-items: center; 
+        border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; 
+    }
+    .print-header img { height: 50px; }
+    .print-header-titles { text-align: center; }
+    .print-header-titles h1 { font-size: 14pt; margin: 0; }
+    .print-header-titles h2 { font-size: 10pt; font-weight: normal; margin: 0; }
+    
+    .print-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    .print-table th, .print-table td { border: 1px solid #999; padding: 4px; text-align: left; }
+    .print-table th { background-color: #eee !important; -webkit-print-color-adjust: exact; }
+    
+    .print-signatures { 
+        display: flex; justify-content: space-around; margin-top: 60px; page-break-inside: avoid; 
+    }
+    .print-signature-box { text-align: center; width: 40%; }
+    .print-signature-line { border-bottom: 1px solid #000; height: 30px; margin-bottom: 5px; }
+    
+    /* Reglas para cortes de página */
+    .batch-page-break-after { page-break-after: always; }
+}
+
+/* Toast Notification */
+.toast-notification {
+    animation: slideIn 0.3s ease-out forwards;
+}
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}

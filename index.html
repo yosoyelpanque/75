@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario Pro v8.0 - PWA</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="libs/xlsx.full.min.js"></script>
+    <script src="libs/qrcode.min.js"></script>
+    <script src="libs/html5-qrcode.min.js"></script>
+    <script src="libs/jszip.min.js"></script>
+    <script src="libs/interact.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
+        }
+    </script>
+</head>
+<body class="text-gray-800 bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+
+    <div id="read-only-mode-overlay" class="hidden read-only-overlay">
+        <div class="read-only-banner">
+            <i class="fa-solid fa-lock"></i>
+            <span>MODO DE SÓLO LECTURA (CONSULTA)</span>
+        </div>
+    </div>
+
+    <div id="loading-overlay" class="modal-overlay" style="z-index: 2000;">
+        <div class="text-white text-xl font-bold text-center w-full max-w-xs">
+            <i id="loading-spinner" class="fa-solid fa-spinner fa-spin fa-2x"></i>
+            <p id="loading-text" class="mt-2">Cargando...</p>
+        </div>
+    </div>
+
+    <div id="import-progress-modal" class="modal-overlay" style="z-index: 2001;">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Procesando Datos</h3>
+            <p id="import-progress-text" class="text-gray-600 mb-4 text-center">Iniciando...</p>
+            <div class="progress-bar-container">
+                <div id="import-progress-bar">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmation-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-sm" tabindex="-1">
+            <h3 id="modal-title" class="text-xl font-bold mb-4">Confirmación</h3>
+            <p id="modal-text" class="text-gray-600 mb-6">¿Estás seguro?</p>
+            <div class="flex justify-end space-x-4">
+                <button id="modal-cancel" class="px-4 py-2 rounded-lg text-gray-700 bg-gray-200 hover:bg-gray-300">Cancelar</button>
+                <button id="modal-confirm" class="px-4 py-2 rounded-lg text-white bg-indigo-500 hover:bg-indigo-600">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-adicionales-confirm-modal" class="modal-overlay" style="z-index: 1110;">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
+            <h3 class="text-xl font-bold mb-4">Resguardo Individual</h3>
+            <p class="text-gray-600 mb-6">¿Agregar bienes adicionales al resguardo?</p>
+            <div class="flex justify-end space-x-4">
+                <button id="add-adicionales-no" class="px-4 py-2 rounded-lg text-gray-700 bg-gray-200 hover:bg-gray-300">No (Solo Inventario)</button>
+                <button id="add-adicionales-yes" class="px-4 py-2 rounded-lg text-white bg-indigo-500 hover:bg-indigo-600">Sí (Todo)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="preprint-edit-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-lg">
+            <h3 id="preprint-title" class="text-xl font-bold mb-4">Preparar Impresión</h3>
+            <div class="space-y-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium">Fecha del Reporte:</label>
+                    <input type="text" id="preprint-date" class="mt-1 block w-full p-2 border rounded-md">
+                </div>
+            </div>
+            <div id="preprint-fields" class="space-y-4"></div>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button id="preprint-cancel-btn" class="px-4 py-2 rounded-lg text-gray-700 bg-gray-200 hover:bg-gray-300">Cancelar</button>
+                <button id="preprint-confirm-btn" class="px-4 py-2 rounded-lg text-white bg-green-500 hover:bg-green-600">Generar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="log-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-2xl">
+            <h3 class="text-xl font-bold mb-4">Registro (Log)</h3>
+            <div id="log-content" class="h-96 overflow-y-auto bg-gray-100 dark:bg-slate-800 p-3 rounded-lg text-sm font-mono"></div>
+            <div class="flex justify-end mt-6">
+                <button id="log-close-btn" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="qr-display-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-xs text-center">
+            <h3 id="qr-display-title" class="text-xl font-bold mb-4">Código QR</h3>
+            <div id="qr-code-display" class="flex justify-center items-center p-4 border rounded-lg"></div>
+            <button id="qr-display-close-btn" class="mt-6 px-4 py-2 rounded-lg bg-gray-200">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="item-details-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+            <h3 id="item-details-title" class="text-xl font-bold mb-4">Detalles</h3>
+            <div id="item-details-content" class="space-y-2"></div>
+            <button id="item-details-close-btn" class="mt-6 px-4 py-2 rounded-lg bg-gray-200">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="transfer-photo-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-lg">
+            <h3 class="text-xl font-bold mb-4">Transferir Foto</h3>
+            <p id="transfer-photo-text" class="mb-4">¿Transferir foto antes de eliminar?</p>
+            <img id="transfer-photo-preview" class="max-w-xs max-h-40 mx-auto rounded-lg mb-4">
+            <div class="space-y-2">
+                <input type="text" id="transfer-photo-search" class="w-full rounded-md border p-2" placeholder="Buscar bien...">
+                <select id="transfer-photo-select" class="w-full rounded-md border p-2 h-32" size="5"></select>
+            </div>
+            <div class="flex justify-between space-x-4 mt-6">
+                <button id="transfer-photo-skip-btn" class="px-4 py-2 bg-gray-200">No transferir</button>
+                <div>
+                    <button id="transfer-photo-cancel-btn" class="px-4 py-2 bg-gray-100">Cancelar</button>
+                    <button id="transfer-photo-confirm-btn" class="px-4 py-2 text-white bg-indigo-500" disabled>Transferir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="formato-entrada-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-sm text-center">
+            <h3 class="text-xl font-bold mb-4">Bien Personal</h3>
+            <p class="mb-6">¿Tiene formato de entrada?</p>
+            <div class="flex justify-center space-x-4">
+                <button id="formato-entrada-no" class="px-6 py-2 text-white bg-red-500 rounded-lg">No</button>
+                <button id="formato-entrada-si" class="px-6 py-2 text-white bg-green-500 rounded-lg">Sí</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reassign-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-lg">
+            <h3 id="reassign-title" class="text-xl font-bold mb-4">Acción Requerida</h3>
+            <p id="reassign-text" class="mb-6"></p>
+            <div class="space-y-4">
+                <select id="reassign-area-select" class="w-full rounded-md border p-2"></select>
+            </div>
+            <div class="flex flex-col sm:flex-row justify-end gap-2 mt-6">
+                <button id="reassign-confirm-btn" class="px-4 py-2 text-white bg-blue-500 rounded-lg">Reasignar</button>
+                <button id="reassign-keep-btn" class="px-4 py-2 bg-gray-200 rounded-lg">Mantener</button>
+                <button id="reassign-delete-all-btn" class="px-4 py-2 text-white bg-red-600 rounded-lg">Eliminar Todo</button>
+                <button id="reassign-cancel-btn" class="px-4 py-2 bg-gray-100 rounded-lg">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="area-closure-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-lg">
+            <h3 class="text-xl font-bold mb-4">Cerrar Acta</h3>
+            <div class="space-y-4">
+                <input type="text" id="area-closure-responsible" class="w-full rounded-md border p-2" placeholder="Nombre Responsable">
+                <input type="text" id="area-closure-location" class="w-full rounded-md border p-2" placeholder="Ubicación Física">
+            </div>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button id="area-closure-cancel-btn" class="px-4 py-2 bg-gray-200 rounded-lg">Cancelar</button>
+                <button id="area-closure-confirm-btn" class="px-4 py-2 text-white bg-green-500 rounded-lg">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notes-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-lg">
+            <h3 class="text-xl font-bold mb-4">Nota</h3>
+            <textarea id="note-textarea" class="w-full h-32 p-2 border rounded-lg"></textarea>
+            <div class="flex justify-end space-x-4 mt-4">
+                <button id="note-cancel-btn" class="px-4 py-2 bg-gray-200 rounded-lg">Cancelar</button>
+                <button id="note-save-btn" class="px-4 py-2 text-white bg-green-500 rounded-lg">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-adicional-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-lg">
+            <h3 class="text-xl font-bold mb-4">Editar Bien Adicional</h3>
+            <form id="edit-adicional-form" class="space-y-4">
+                <input type="text" name="clave" id="edit-ad-clave" class="w-full border p-2 rounded" placeholder="Clave">
+                <input type="text" name="descripcion" id="edit-ad-descripcion" class="w-full border p-2 rounded" placeholder="Descripción">
+                <input type="text" name="marca" id="edit-ad-marca" class="w-full border p-2 rounded" placeholder="Marca">
+                <input type="text" name="modelo" id="edit-ad-modelo" class="w-full border p-2 rounded" placeholder="Modelo">
+                <input type="text" name="serie" id="edit-ad-serie" class="w-full border p-2 rounded" placeholder="Serie">
+                <input type="text" name="area" id="edit-ad-area" class="w-full border p-2 rounded" placeholder="Área">
+                <div>
+                    <label class="mr-2">Personal:</label>
+                    <input type="radio" name="personal" value="Si"> Sí
+                    <input type="radio" name="personal" value="No"> No
+                </div>
+            </form>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button id="edit-adicional-cancel-btn" class="px-4 py-2 bg-gray-200 rounded-lg">Cancelar</button>
+                <button id="edit-adicional-save-btn" class="px-4 py-2 text-white bg-indigo-500 rounded-lg">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="photo-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-lg">
+            <h3 id="photo-modal-title" class="text-xl font-bold mb-4">Foto</h3>
+            <div id="photo-view-container" class="hidden text-center mb-4">
+                <img id="item-photo-img" class="max-w-full max-h-64 mx-auto rounded-lg mb-4">
+                <button id="delete-photo-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg">Eliminar Foto</button>
+            </div>
+            <div id="photo-upload-container">
+                <p id="photo-message" class="text-center mb-6">Selecciona método</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label for="photo-input" class="border-2 p-6 rounded-lg text-center cursor-pointer hover:bg-gray-50">
+                        <i class="fa-solid fa-cloud-arrow-up text-4xl mb-2"></i>
+                        <span class="block">Subir Archivo</span>
+                    </label>
+                    <input type="file" id="photo-input" class="hidden" accept="image/*">
+                    <button id="use-camera-btn" class="border-2 p-6 rounded-lg hover:bg-gray-50">
+                        <i class="fa-solid fa-camera-retro text-4xl mb-2"></i>
+                        <span class="block">Usar Cámara</span>
+                    </button>
+                </div>
+            </div>
+            <div id="camera-view-container" class="hidden">
+                <select id="photo-camera-select" class="w-full mb-2 p-2 border rounded hidden"></select>
+                <video id="camera-stream" playsinline autoplay class="w-full rounded-lg"></video>
+                <canvas id="photo-canvas" class="hidden"></canvas>
+                <button id="capture-photo-btn" class="mt-4 w-full py-2 bg-indigo-500 text-white rounded-lg">Capturar</button>
+                <button id="switch-to-upload-btn" class="mt-2 w-full py-2 bg-gray-200 rounded-lg">Cancelar Cámara</button>
+            </div>
+            <div class="flex justify-end mt-6">
+                <button id="photo-close-btn" class="px-4 py-2 bg-gray-200 rounded-lg">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-user-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-lg">
+            <h3 class="text-xl font-bold mb-4">Editar Usuario</h3>
+            <div class="space-y-4">
+                <input type="text" id="edit-user-name" class="w-full border p-2 rounded" placeholder="Nombre">
+                
+                <div>
+                    <label class="block text-sm font-medium">Ubicaciones</label>
+                    <div class="flex gap-2 mb-2">
+                        <select id="edit-user-location-type" class="w-full border p-2 rounded">
+                            <option value="OFICINA">OFICINA</option>
+                            <option value="CUBICULO">CUBÍCULO</option>
+                            <option value="BODEGA">BODEGA</option>
+                            <option value="OTRA">Otra</option>
+                            </select>
+                        <button id="edit-add-location-btn" class="bg-blue-500 text-white px-3 rounded">+</button>
+                    </div>
+                    <input type="text" id="edit-user-location-manual" class="w-full border p-2 rounded hidden mb-2" placeholder="Manual">
+                    <div id="edit-user-locations-list" class="flex flex-wrap gap-2 p-2 bg-gray-50 border rounded min-h-[2rem]"></div>
+                </div>
+
+                <select id="edit-user-area" class="w-full border p-2 rounded"></select>
+            </div>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button id="edit-user-cancel-btn" class="px-4 py-2 bg-gray-200 rounded-lg">Cancelar</button>
+                <button id="edit-user-save-btn" class="px-4 py-2 text-white bg-indigo-500 rounded-lg">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="qr-scanner-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Escanear QR</h3>
+            <div id="qr-reader" class="w-full border rounded-lg overflow-hidden"></div>
+            <button id="qr-scanner-close-btn" class="mt-4 w-full py-2 bg-gray-200 rounded-lg">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="item-detail-view-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-0 w-full h-full md:h-auto md:max-w-2xl md:rounded-xl flex flex-col">
+            <header class="flex justify-between items-center p-4 border-b">
+                <h3 id="detail-view-title" class="font-bold">Detalle Bien</h3>
+                <button id="detail-view-close-btn" class="p-2 bg-gray-200 rounded-full"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <main class="flex-grow overflow-y-auto p-4 space-y-4">
+                <div id="detail-view-photo-container" class="h-64 bg-gray-100 flex justify-center items-center rounded-lg">
+                    <img id="detail-view-photo" class="hidden max-h-full max-w-full">
+                    <span id="detail-view-no-photo">Sin foto</span>
+                </div>
+                <div class="space-y-2">
+                    <p><strong>Clave:</strong> <span id="detail-view-clave"></span></p>
+                    <p><strong>Desc:</strong> <span id="detail-view-descripcion"></span></p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <p><strong>Marca:</strong> <span id="detail-view-marca"></span></p>
+                        <p><strong>Modelo:</strong> <span id="detail-view-modelo"></span></p>
+                        <p><strong>Serie:</strong> <span id="detail-view-serie"></span></p>
+                    </div>
+                    <p><strong>Usuario:</strong> <span id="detail-view-usuario"></span></p>
+                    <p><strong>Ubicación:</strong> <span id="detail-view-ubicacion-especifica" class="text-indigo-600 font-bold"></span></p>
+                    <p><strong>Área Orig:</strong> <span id="detail-view-area"></span></p>
+                    <div id="detail-view-area-warning" class="hidden p-2 rounded"></div>
+                </div>
+            </main>
+            <footer class="p-4 border-t grid grid-cols-4 gap-2">
+                <button id="detail-view-ubicar-btn" class="bg-green-500 text-white py-2 rounded">Ubicar</button>
+                <button id="detail-view-reetiquetar-btn" class="bg-yellow-500 text-white py-2 rounded">Etiqueta</button>
+                <button id="detail-view-nota-btn" class="bg-blue-500 text-white py-2 rounded">Nota</button>
+                <button id="detail-view-foto-btn" class="bg-indigo-500 text-white py-2 rounded">Foto</button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="user-detail-view-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-0 w-full md:max-w-md md:rounded-xl flex flex-col">
+            <header class="p-4 border-b flex justify-between">
+                <h3 class="font-bold">Usuario</h3>
+                <button id="user-detail-view-close-btn"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <main class="p-4 space-y-4">
+                <div id="user-detail-view-photo-container" class="h-48 bg-gray-100 flex justify-center items-center rounded">
+                    <img id="user-detail-view-photo" class="hidden max-h-full">
+                    <span id="user-detail-view-no-photo">Sin foto ubicación</span>
+                </div>
+                <div>
+                    <h4 id="user-detail-view-name" class="font-bold text-lg"></h4>
+                    <p id="user-detail-view-area"></p>
+                    <div id="user-detail-view-location"></div>
+                </div>
+            </main>
+            <footer class="p-4 border-t text-right">
+                <button id="user-detail-view-close-footer-btn" class="bg-gray-200 px-4 py-2 rounded">Cerrar</button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="adicional-detail-view-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-0 w-full md:max-w-lg md:rounded-xl flex flex-col">
+            <header class="p-4 border-b flex justify-between">
+                <h3 class="font-bold">Bien Adicional</h3>
+                <button id="adicional-detail-view-close-btn"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <main class="p-4 space-y-4 overflow-y-auto">
+                <div id="adicional-detail-view-photo-container" class="h-64 bg-gray-100 flex justify-center items-center rounded">
+                    <img id="adicional-detail-view-photo" class="hidden max-h-full">
+                    <span id="adicional-detail-view-no-photo">Sin foto</span>
+                </div>
+                <div class="space-y-2">
+                    <p id="adicional-detail-view-descripcion" class="text-lg font-semibold"></p>
+                    <p>Clave: <span id="adicional-detail-view-clave"></span></p>
+                    <p>Asignada: <span id="adicional-detail-view-claveAsignada"></span></p>
+                    <p>Marca: <span id="adicional-detail-view-marca"></span></p>
+                    <p>Modelo: <span id="adicional-detail-view-modelo"></span></p>
+                    <p>Serie: <span id="adicional-detail-view-serie"></span></p>
+                    <p>Área: <span id="adicional-detail-view-area"></span></p>
+                    <p>Usuario: <span id="adicional-detail-view-usuario"></span></p>
+                    <p>Ubicación: <span id="adicional-detail-view-ubicacion-especifica"></span></p>
+                    <p>Tipo: <span id="adicional-detail-view-tipo"></span></p>
+                </div>
+            </main>
+            <footer class="p-4 border-t text-right">
+                <button id="adicional-detail-view-close-footer-btn" class="bg-gray-200 px-4 py-2 rounded">Cerrar</button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="report-view-modal" class="modal-overlay">
+        <div class="modal-content bg-white p-0 w-full h-full md:h-[80vh] md:max-w-6xl md:rounded-xl flex flex-col">
+            <header class="p-4 border-b flex justify-between bg-gray-50">
+                <h3 id="report-view-title" class="font-bold">Reporte</h3>
+                <button id="report-view-close-btn"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <main class="flex-grow overflow-auto p-4">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead id="report-view-table-head" class="bg-gray-50"></thead>
+                    <tbody id="report-view-table-body" class="bg-white divide-y"></tbody>
+                </table>
+            </main>
+            <footer class="p-4 border-t text-right">
+                <button id="report-view-close-footer-btn" class="bg-gray-200 px-4 py-2 rounded">Cerrar</button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="layout-editor-modal" class="modal-overlay">
+        <div class="modal-content w-full max-w-6xl h-[90vh] bg-white flex flex-col p-0 rounded-xl">
+            <header class="p-4 border-b flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold">Editor Croquis</h3>
+                <div class="gap-2 flex">
+                    <button id="layout-add-image-btn" class="bg-teal-500 text-white px-3 py-1 rounded">Img</button>
+                    <input type="file" id="layout-image-input" class="hidden" accept="image/*">
+                    <button id="layout-print-btn" class="bg-blue-500 text-white px-3 py-1 rounded">Imprimir</button>
+                    <button id="layout-save-btn" class="bg-green-500 text-white px-3 py-1 rounded">Guardar</button>
+                    <button id="layout-close-btn" class="bg-gray-200 px-3 py-1 rounded">Cerrar</button>
+                </div>
+            </header>
+            <main class="flex-grow flex h-full overflow-hidden">
+                <aside class="w-60 bg-gray-50 border-r flex flex-col">
+                    <div id="layout-tools-sidebar" class="p-2 flex flex-wrap gap-2 border-b">
+                        <div class="tool-item draggable-tool" data-tool-type="text"><i class="fa-solid fa-font"></i></div>
+                        <div class="tool-item draggable-tool" data-tool-type="arrow"><i class="fa-solid fa-arrow-up"></i></div>
+                        <div class="tool-item draggable-tool" data-tool-type="note"><i class="fa-solid fa-note-sticky"></i></div>
+                    </div>
+                    <div class="p-2 flex-grow overflow-y-auto">
+                        <h4 class="font-bold text-xs mb-2">Ubicaciones</h4>
+                        <div id="layout-sidebar-locations" class="space-y-1"></div>
+                    </div>
+                </aside>
+                <div id="layout-canvas-wrapper" class="flex-grow bg-gray-200 relative overflow-auto">
+                    <div id="layout-canvas" class="bg-white mx-auto my-4 shadow-lg" style="width: 720px; height: 960px;"></div>
+                    <div id="layout-pagination-controls" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white p-2 rounded-full shadow flex gap-2">
+                        <button id="layout-page-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                        <input id="layout-page-name" class="w-20 text-center border-b">
+                        <button id="layout-page-next"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button id="layout-page-add" class="text-green-600"><i class="fa-solid fa-plus"></i></button>
+                        <button id="layout-page-reset" class="text-yellow-600"><i class="fa-solid fa-rotate"></i></button>
+                        <button id="layout-page-remove" class="text-red-600"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="reconciliation-modal" class="modal-overlay">
+        <div class="modal-content bg-white w-full h-full md:h-[90vh] md:max-w-5xl rounded-xl flex flex-col p-0">
+            <header class="p-4 bg-indigo-600 text-white flex justify-between">
+                <h3 class="font-bold">Conciliación</h3>
+                <button id="reconciliation-close-btn"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <main class="flex-grow p-4 overflow-y-auto bg-gray-50">
+                <div class="flex gap-4 mb-4 text-center text-white font-bold">
+                    <div class="flex-1 bg-green-500 p-2 rounded">Nuevos: <span id="diff-count-new">0</span></div>
+                    <div class="flex-1 bg-red-500 p-2 rounded">Bajas: <span id="diff-count-del">0</span></div>
+                    <div class="flex-1 bg-orange-500 p-2 rounded">Mods: <span id="diff-count-mod">0</span></div>
+                </div>
+                <div class="flex border-b mb-4">
+                    <button id="tab-diff-new" class="px-4 py-2 border-b-2 border-indigo-600 font-bold">Nuevos</button>
+                    <button id="tab-diff-mod" class="px-4 py-2 text-gray-500">Modificados</button>
+                    <button id="tab-diff-del" class="px-4 py-2 text-gray-500">Bajas</button>
+                </div>
+                <div id="diff-content-container" class="space-y-2"></div>
+            </main>
+            <footer class="p-4 bg-white border-t flex justify-end gap-2">
+                <button id="reconciliation-cancel-btn" class="bg-gray-200 px-4 py-2 rounded">Cancelar</button>
+                <button id="reconciliation-apply-btn" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold">Sincronizar</button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="batch-print-modal" class="modal-overlay">
+        <div class="modal-content bg-white w-full h-[85vh] max-w-4xl rounded-xl flex flex-col p-0">
+            <header class="p-4 bg-indigo-600 text-white flex justify-between">
+                <h3 class="font-bold">Impresión Masiva</h3>
+                <button id="batch-close-btn"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="flex-grow flex overflow-hidden">
+                <aside class="w-1/3 bg-gray-50 p-4 border-r overflow-y-auto space-y-4">
+                    <h4 class="font-bold border-b pb-2">Configuración</h4>
+                    <input type="text" id="batch-date" class="w-full border p-2 rounded" placeholder="Fecha">
+                    <input type="text" id="batch-entrega" class="w-full border p-2 rounded" placeholder="Entrega">
+                    <input type="text" id="batch-cargo-entrega" class="w-full border p-2 rounded" value="Responsable de Área">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="batch-include-additionals"> Incluir Adicionales
+                    </label>
+                </aside>
+                <main class="w-2/3 p-4 flex flex-col">
+                    <div class="flex justify-between mb-2">
+                        <h4 class="font-bold">Usuarios (<span id="batch-area-name"></span>)</h4>
+                        <div class="text-xs space-x-2">
+                            <button id="batch-select-all" class="text-indigo-600">Todos</button>
+                            <button id="batch-deselect-all" class="text-gray-500">Ninguno</button>
+                        </div>
+                    </div>
+                    <div id="batch-users-list" class="flex-grow border rounded p-2 overflow-y-auto bg-gray-50"></div>
+                    <p class="text-right text-sm mt-2">Seleccionados: <span id="batch-selected-count">0</span></p>
+                </main>
+            </div>
+            <footer class="p-4 border-t flex justify-end gap-2">
+                <button id="batch-cancel-btn" class="bg-gray-200 px-4 py-2 rounded">Cancelar</button>
+                <button id="batch-generate-btn" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold">Generar Reporte</button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-5 right-5 z-[1001] space-y-2"></div>
+    <div id="progress-tooltip" class="fixed hidden bg-gray-800 text-white p-2 rounded shadow-lg text-sm z-[9999] pointer-events-none max-w-xs"></div>
+    <div id="photo-preview-popover" class="hidden fixed p-1 bg-white border shadow-lg rounded z-[2000]">
+        <img id="photo-preview-img" class="max-w-xs max-h-48">
+    </div>
+
+    <div id="print-view-container" aria-hidden="true" class="hidden">
+        <div id="print-session-summary" class="print-page"></div>
+        <div id="print-area-closure" class="print-page"></div>
+        <div id="print-resguardo" class="print-page">
+            <header class="print-header">
+                <img src="logo.png" alt="Logo">
+                <div class="print-header-titles">
+                    <h1 id="print-resguardo-title"></h1>
+                    <p>Dirección de Almacén</p>
+                    <h2 id="print-resguardo-area"></h2>
+                </div>
+                <div id="print-resguardo-date" class="print-header-date"></div>
+            </header>
+            <p id="print-resguardo-text" class="print-main-text"></p>
+            <table id="print-resguardo-table" class="print-table">
+                <thead></thead><tbody></tbody>
+            </table>
+            <p id="print-resguardo-count" class="print-footer-count"></p>
+            <p id="print-resguardo-note" class="print-footer-note" style="font-size: 8pt; margin-top: 5px;"></p>
+            <div id="print-resguardo-signatures" class="print-signatures">
+                <div id="print-resguardo-author-box" class="print-signature-box">
+                    <div class="print-signature-line"></div>
+                    <span id="print-resguardo-author-name"></span><br>
+                    <span id="print-resguardo-author-title"></span>
+                </div>
+                <div id="print-resguardo-responsible-box" class="print-signature-box">
+                    <div class="print-signature-line"></div>
+                    <span id="print-resguardo-responsible-name"></span><br>
+                    <span id="print-resguardo-responsible-title">Firma de Conformidad</span>
+                </div>
+            </div>
+        </div>
+        <div id="print-simple-pending" class="print-page"></div>
+        <div id="print-tasks-report" class="print-page">
+            <header class="print-header">
+                <img src="logo.png" alt="Logo">
+                <div class="print-header-titles"><h1>Plan de Acción</h1></div>
+                <div id="print-tasks-date" class="print-header-date"></div>
+            </header>
+            <div id="print-tasks-content" class="print-section"></div>
+        </div>
+        <div id="print-layout-view" class="print-page">
+            <header class="print-header">
+                <img src="logo.png" alt="Logo">
+                <div class="print-header-titles">
+                    <h1>Croquis</h1>
+                    <h2 id="print-layout-page-number"></h2>
+                </div>
+                <div id="print-layout-date" class="print-header-date"></div>
+            </header>
+            <div id="print-layout-user-list" class="print-section"></div>
+            <div class="print-section">
+                <div class="print-layout-canvas-container">
+                    <div id="print-layout-canvas"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-container" class="min-h-screen p-4 md:p-8 transition-all duration-300">
+        
+        <div id="login-page" class="w-full max-w-md mx-auto my-auto p-8 rounded-xl shadow-xl glass-effect">
+            <img src="logo.png" alt="Logo" class="max-w-xs mx-auto mb-6 h-32 object-contain">
+            <h1 class="text-3xl font-bold text-center mb-6">Inventario Pro</h1>
+            <p class="text-center text-gray-600 mb-8">Ingresa tu número de empleado.</p>
+            <div class="space-y-4">
+                <input type="number" id="employee-number-input" class="w-full rounded-md border shadow-sm p-3" placeholder="Número">
+                <button id="employee-login-btn" class="w-full py-3 px-4 rounded-lg font-bold btn-gradient">Ingresar</button>
+            </div>
+            <p class="text-center text-xs mt-6"><a href="#" id="clear-session-link" class="hover:underline">Limpiar sesión</a></p>
+        </div>
+
+        <div id="main-app" class="hidden w-full max-w-7xl mx-auto flex flex-col">
+            
+            <div id="header-and-dashboard">
+                <header class="p-6 rounded-xl shadow-md glass-effect flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div id="logo-container" class="border rounded-xl p-2"><img id="logo-img" src="logo.png" class="h-12 object-contain"></div>
+                        <div>
+                            <h2 class="text-2xl font-bold">Inventario Pro</h2>
+                            <p class="text-sm text-gray-600">Dirección de Almacén</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap justify-end">
+                        <span id="current-user-name" class="text-xs font-bold mr-2"></span>
+                        <button id="show-log-btn" class="py-2 px-4 bg-gray-500 text-white rounded-lg"><i class="fa-solid fa-list"></i></button>
+                        <button id="upload-btn" class="py-2 px-4 bg-indigo-500 text-white rounded-lg"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Cargar Excel</button>
+                        <input type="file" id="file-input" class="hidden" multiple accept=".xls,.xlsx,.csv">
+                        <button id="logout-btn" class="py-2 px-6 bg-red-500 text-white rounded-lg font-bold">Salir</button>
+                    </div>
+                </header>
+
+                <div id="dashboard-container" class="mt-8 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="p-6 rounded-xl shadow glass-effect text-center">
+                            <h3>Total</h3><p id="total-items" class="text-3xl font-bold">0</p>
+                        </div>
+                        <div class="p-6 rounded-xl shadow glass-effect text-center">
+                            <h3>Ubicados</h3><p id="located-items" class="text-3xl font-bold">0</p>
+                        </div>
+                        <div class="p-6 rounded-xl shadow glass-effect text-center">
+                            <h3>Pendientes</h3><p id="pending-items" class="text-3xl font-bold">0</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="p-4 rounded-xl shadow glass-effect text-center">
+                            <h3>Áreas</h3><p id="working-areas-count" class="text-2xl font-bold">0</p>
+                        </div>
+                        <div id="daily-progress-card" class="p-4 rounded-xl shadow glass-effect text-center relative">
+                            <h3>Avance Día</h3><p id="daily-progress" class="text-2xl font-bold">0</p>
+                        </div>
+                        <div class="p-4 rounded-xl shadow glass-effect text-center">
+                            <h3>Adicionales</h3><p id="additional-items-count" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="dashboard-toggle-container" class="flex justify-center mb-8 -mt-6">
+                <button id="dashboard-toggle-btn" class="px-4 py-1 rounded-full bg-white shadow"><i id="dashboard-toggle" class="fa-solid fa-chevron-up"></i></button>
+            </div>
+
+            <div id="tabs-container-wrapper" class="sticky top-0 z-50 glass-effect rounded-lg mb-4">
+                <nav id="tabs-container" class="flex justify-between p-2">
+                    <button data-tab="users" class="tab-btn active px-4 py-2 font-bold">Usuarios</button>
+                    <div class="flex gap-2">
+                        <button data-tab="inventory" class="tab-btn px-4 py-2 font-bold">Inventario</button>
+                        <button data-tab="adicionales" class="tab-btn px-4 py-2 font-bold">Adicionales</button>
+                        <button data-tab="reports" class="tab-btn px-4 py-2 font-bold">Reportes</button>
+                        <button data-tab="settings" class="tab-btn px-4 py-2"><i class="fa-solid fa-gear"></i></button>
+                    </div>
+                </nav>
+            </div>
+
+            <div id="main-content-area" class="p-6 rounded-xl shadow-md glass-effect bg-white min-h-[500px]">
+                
+                <div id="active-user-banner" class="hidden mb-4 p-3 rounded-lg border-l-4 border-green-600 bg-green-100 flex flex-col sm:flex-row justify-between items-center gap-3">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-user-check text-2xl text-green-700"></i>
+                        <div>
+                            <span class="text-xs font-bold uppercase text-green-800">Activo</span>
+                            <span id="active-user-banner-name" class="font-bold text-lg block"></span>
+                            <span id="active-user-banner-area" class="text-xs block"></span>
+                        </div>
+                        <div class="hidden md:block ml-4 pl-4 border-l border-green-300">
+                            <label class="text-xs font-bold block">Ubicación Actual</label>
+                            <select id="active-user-location-select" class="text-sm rounded border p-1"></select>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 items-center">
+                        <select id="active-user-location-select-mobile" class="md:hidden text-sm rounded border p-2"></select>
+                        <button id="deactivate-user-btn" class="px-4 py-2 bg-white border border-green-200 rounded-lg text-sm font-bold text-green-800">Terminar</button>
+                    </div>
+                </div>
+
+                <div id="users-tab" class="tab-content active">
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <div class="md:w-1/3 p-4 border rounded bg-gray-50">
+                            <h3 class="font-bold mb-4">Nuevo Usuario</h3>
+                            <div class="space-y-4">
+                                <input type="text" id="user-name" placeholder="Nombre" class="w-full border p-2 rounded">
+                                <div class="flex gap-2">
+                                    <select id="user-location-select" class="w-full border p-2 rounded">
+                                        <option value="OFICINA">OFICINA</option>
+                                        <option value="OTRA">Otra</option>
+                                    </select>
+                                    <button id="add-location-btn" class="bg-green-500 text-white px-3 rounded">+</button>
+                                </div>
+                                <input type="text" id="user-location-manual" class="hidden w-full border p-2 rounded" placeholder="Ubicación manual">
+                                <div id="new-user-locations-list" class="flex flex-wrap gap-2 p-2 border rounded bg-white min-h-[2rem]"></div>
+                                <select id="user-area-select" class="w-full border p-2 rounded"></select>
+                                <button id="create-user-btn" class="w-full py-2 bg-indigo-500 text-white rounded font-bold">Crear</button>
+                            </div>
+                        </div>
+                        <div class="md:w-2/3 p-4 border rounded">
+                            <div class="flex justify-between mb-4">
+                                <h3 class="font-bold">Usuarios</h3>
+                                <span id="user-count-badge" class="bg-indigo-100 text-indigo-800 px-2 rounded-full text-xs"></span>
+                            </div>
+                            <input type="text" id="user-search-input" placeholder="Buscar..." class="w-full border p-2 rounded mb-4">
+                            <div id="registered-users-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="inventory-tab" class="tab-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                        <div class="md:col-span-2 relative">
+                            <input type="text" id="search-input" placeholder="Buscar..." class="w-full pl-8 pr-4 py-2 border rounded">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+                        <select id="status-filter" class="border p-2 rounded"><option value="all">Estado</option><option value="SI">Ubicado</option><option value="NO">Pendiente</option></select>
+                        <select id="area-filter-inventory" class="border p-2 rounded"><option value="all">Área</option></select>
+                        <select id="book-type-filter" class="border p-2 rounded"><option value="all">Libro</option></select>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button id="ubicado-btn" class="bg-green-500 text-white px-4 py-2 rounded">Ubicar</button>
+                        <button id="re-etiquetar-btn" class="bg-yellow-500 text-white px-4 py-2 rounded">Etiqueta</button>
+                        <button id="desubicar-btn" class="bg-orange-500 text-white px-4 py-2 rounded">Deshacer</button>
+                        <button id="add-note-btn" class="bg-blue-500 text-white px-4 py-2 rounded">Nota</button>
+                        <button id="qr-scan-btn" class="bg-indigo-600 text-white px-4 py-2 rounded">QR</button>
+                        <button id="clear-search-btn" class="bg-gray-200 px-4 py-2 rounded">Limpiar</button>
+                    </div>
+                    <div id="additional-search-results-container" class="hidden mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                        <h4 class="font-bold text-sm">Resultados Adicionales</h4>
+                        <div id="additional-search-results-list"></div>
+                    </div>
+                    <div class="inventory-table-container overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th class="p-2"><input type="checkbox" id="select-all-checkbox"></th>
+                                    <th class="p-2 text-left text-xs uppercase text-gray-500">Clave</th>
+                                    <th class="p-2 text-left text-xs uppercase text-gray-500">Descripción</th>
+                                    <th class="p-2 text-left text-xs uppercase text-gray-500">Marca</th>
+                                    <th class="p-2 text-left text-xs uppercase text-gray-500">Serie</th>
+                                    <th class="p-2 text-left text-xs uppercase text-gray-500">Usuario</th>
+                                    <th class="p-2 text-center text-xs uppercase text-gray-500">Estado</th>
+                                    <th class="p-2 text-center text-xs uppercase text-gray-500">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-table-body" class="bg-white divide-y"></tbody>
+                        </table>
+                    </div>
+                    <div id="pagination-controls" class="flex justify-center items-center gap-4 mt-4">
+                        <button id="prev-page-btn" class="bg-gray-200 px-3 py-1 rounded" disabled>Prev</button>
+                        <span id="page-info" class="text-sm">1 de 1</span>
+                        <button id="next-page-btn" class="bg-gray-200 px-3 py-1 rounded" disabled>Next</button>
+                    </div>
+                </div>
+
+                <div id="adicionales-tab" class="tab-content hidden">
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <div class="md:w-1/3 p-4 border rounded bg-gray-50">
+                            <h3 class="font-bold mb-4">Nuevo Adicional</h3>
+                            <form id="adicional-form" class="space-y-4">
+                                <div><input id="ad-clave" name="clave" class="w-full border p-2 rounded" placeholder="Clave"><p id="ad-clave-feedback" class="text-xs text-red-500 h-4"></p></div>
+                                <input id="ad-descripcion" name="descripcion" class="w-full border p-2 rounded" placeholder="Descripción">
+                                <input id="ad-marca" name="marca" class="w-full border p-2 rounded" placeholder="Marca">
+                                <input id="ad-modelo" name="modelo" class="w-full border p-2 rounded" placeholder="Modelo">
+                                <div><input id="ad-serie" name="serie" class="w-full border p-2 rounded" placeholder="Serie"><p id="ad-serie-feedback" class="text-xs text-red-500 h-4"></p></div>
+                                <input id="ad-area" name="area" class="w-full border p-2 rounded" placeholder="Área Procedencia">
+                                <div>
+                                    <label class="text-sm">Personal:</label>
+                                    <input type="radio" name="personal" value="Si"> Sí
+                                    <input type="radio" name="personal" value="No" checked> No
+                                </div>
+                                <button type="button" id="add-adicional-btn" class="w-full py-2 bg-indigo-500 text-white rounded font-bold">Registrar</button>
+                            </form>
+                        </div>
+                        <div class="md:w-2/3 p-4 border rounded">
+                            <div class="flex justify-between mb-4">
+                                <h3 class="font-bold">Adicionales</h3>
+                                <span id="additional-items-total" class="bg-indigo-100 text-indigo-800 px-2 rounded-full text-xs">0</span>
+                            </div>
+                            <div class="flex gap-2 mb-4">
+                                <select id="ad-area-filter" class="w-full border p-2 rounded"></select>
+                                <select id="ad-user-filter" class="w-full border p-2 rounded"><option value="all">Usuarios</option></select>
+                            </div>
+                            <div id="adicionales-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                            <button id="print-adicionales-resguardo-btn" class="mt-4 w-full bg-purple-500 text-white py-2 rounded">Informe Adicionales</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="reports-tab" class="tab-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="p-4 border rounded bg-gray-50 h-96 overflow-y-auto">
+                            <h3 class="font-bold mb-4">Estadísticas</h3>
+                            <div id="area-progress-container" class="space-y-2 mb-4"></div>
+                            <div id="general-stats" class="text-sm space-y-2"></div>
+                        </div>
+                        <div class="p-4 border rounded flex flex-col h-96">
+                            <h3 class="font-bold mb-4">Generar</h3>
+                            <div class="flex gap-2 mb-4">
+                                <select id="report-area-filter" class="w-full border p-2 rounded"></select>
+                                <select id="report-user-filter" class="w-full border p-2 rounded"><option value="all">Usuarios</option></select>
+                            </div>
+                            <div id="report-buttons-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto">
+                                <button data-report-type="inventory" class="report-btn bg-blue-500 text-white py-2 rounded">Inventario</button>
+                                <button data-report-type="individual_resguardo" class="report-btn bg-purple-500 text-white py-2 rounded">Resguardo Ind.</button>
+                                <button data-report-type="labels" class="report-btn bg-green-700 text-white py-2 rounded">Etiquetas</button>
+                                <button id="export-labels-xlsx-btn" class="bg-green-500 text-white py-2 rounded">XLSX Etiquetas</button>
+                                <button data-report-type="pending" class="report-btn bg-red-500 text-white py-2 rounded">Pendientes</button>
+                                <button data-report-type="simple_pending" class="report-btn bg-red-700 text-white py-2 rounded">Imp. Pendientes</button>
+                                <button data-report-type="institutional_adicionales" class="report-btn bg-orange-500 text-white py-2 rounded">Regularizar Inst.</button>
+                                <button data-report-type="adicionales_informe" class="report-btn bg-purple-600 text-white py-2 rounded">Imp. Adicionales</button>
+                                <button data-report-type="notes" class="report-btn bg-cyan-500 text-white py-2 rounded">Notas</button>
+                                <button data-report-type="mismatched" class="report-btn bg-orange-600 text-white py-2 rounded">Fuera de Área</button>
+                                <button id="export-xlsx-btn" class="bg-teal-500 text-white py-2 rounded col-span-2">Exportar Todo XLSX</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="settings-tab" class="tab-content hidden">
+                    <div class="space-y-4">
+                        <div class="p-4 border rounded bg-white">
+                            <h4 class="font-bold flex justify-between">Directorio Responsables <span id="directory-count"></span></h4>
+                            <div id="directory-container" class="mt-2 max-h-40 overflow-y-auto space-y-2"></div>
+                        </div>
+                        <div class="p-4 border rounded bg-white">
+                            <h4 class="font-bold flex justify-between">Listados Cargados <span id="loaded-lists-count"></span></h4>
+                            <div id="loaded-lists-container" class="mt-2 max-h-40 overflow-y-auto space-y-2"></div>
+                        </div>
+                        <div class="p-4 border rounded border-l-4 border-indigo-500 flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold">Edición Rápida (Tabla)</h4>
+                                <p class="text-xs text-gray-500">Editar celdas directamente</p>
+                            </div>
+                            <input type="checkbox" id="inventory-edit-mode-toggle" class="toggle-checkbox">
+                        </div>
+                        <div class="p-4 border rounded bg-white">
+                            <button id="open-layout-editor-btn" class="w-full py-2 bg-indigo-500 text-white rounded font-bold">Editor de Croquis</button>
+                        </div>
+                        <div class="p-4 border rounded bg-white">
+                            <h4 class="font-bold mb-2">Cierre de Sesión</h4>
+                            <div class="space-y-2">
+                                <div class="grid grid-cols-3 gap-2 text-sm">
+                                    <input id="summary-author" class="border p-2 rounded bg-gray-100" readonly>
+                                    <input id="summary-area-responsible" class="border p-2 rounded" placeholder="Resp. Área">
+                                    <input id="summary-location" class="border p-2 rounded" placeholder="Ubicación">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button data-report-type="session_summary" class="report-btn bg-indigo-600 text-white py-2 rounded">Resumen Sesión</button>
+                                    <button data-report-type="tasks_report" class="report-btn bg-cyan-600 text-white py-2 rounded">Plan Acción</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-4 border rounded bg-gray-50 grid grid-cols-2 gap-2">
+                            <button id="export-session-btn" class="bg-blue-500 text-white py-2 rounded">Backup (.zip)</button>
+                            <button id="import-session-btn" class="bg-green-500 text-white py-2 rounded">Restaurar (.zip)</button>
+                            <input type="file" id="import-file-input" class="hidden" accept=".zip">
+                            
+                            <button id="import-photos-btn" class="bg-teal-500 text-white py-2 rounded">Importar Fotos</button>
+                            <input type="file" id="import-photos-input" class="hidden" multiple accept="image/*">
+                            
+                            <button id="restore-photos-from-backup-btn" class="bg-orange-500 text-white py-2 rounded">Restaurar Fotos</button>
+                            <input type="file" id="restore-photos-input" class="hidden" accept=".zip">
+
+                            <button id="finalize-inventory-btn" class="col-span-2 bg-red-600 text-white py-2 rounded font-bold">FINALIZAR INVENTARIO</button>
+                        </div>
+                        <div class="p-4 border rounded border-l-4 border-orange-500">
+                            <h4 class="font-bold text-orange-700">Auditoría (Conciliación)</h4>
+                            <button id="compare-inventory-btn" class="w-full mt-2 bg-orange-500 text-white py-2 rounded">Comparar con Nuevo Excel</button>
+                            <input type="file" id="compare-file-input" class="hidden" accept=".xls,.xlsx,.csv">
+                        </div>
+                        <div class="p-4 border rounded flex justify-between items-center">
+                            <span>Autoguardado (seg):</span>
+                            <input type="number" id="autosave-interval" class="border p-1 w-20 text-center" value="30">
+                        </div>
+                         <div class="p-4 border rounded flex gap-4">
+                             <button data-theme="light" class="bg-white border px-4 py-2 rounded">Claro</button>
+                             <button data-theme="dark" class="bg-gray-800 text-white px-4 py-2 rounded">Oscuro</button>
+                        </div>
+                        <div class="p-4 text-center cursor-pointer select-none">
+                            <h4 id="about-header" class="text-gray-400 text-sm">Acerca de v8.0</h4>
+                            <div id="about-content" class="hidden text-xs text-gray-500 mt-2">
+                                <p>Desarrollado por Mario Benítez (Astronauta™)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+
+</body>
+</html>
